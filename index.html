@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dodge the Blocks</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1e1e1e;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            background-color: #282c34;
+        }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            z-index: 10;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 36px;
+            color: black;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Time: 0s</div>
+    <div id="game-over">Game Over! <br> Press F5 or Tap to Restart!</div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const gameOverElement = document.getElementById('game-over');
+
+        // Resize canvas to fit window
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        let timeSurvived = 0; // Time in seconds
+        let gameRunning = true;
+
+        // Player settings
+        const player = {
+            x: canvas.width / 2 - 15,
+            y: canvas.height - 50,
+            width: 30,
+            height: 30,
+            color: 'green',
+            speed: 3
+        };
+
+        // Block settings
+        const blocks = [];
+        let blockSpawnInterval = 1000; // New blocks spawn every 1 second
+        let blockSpeed = 2;
+        const blockSize = 30;
+        const blocksPerSpawn = 10;
+
+        // Keyboard controls
+        const keys = {
+            left: false,
+            right: false
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'ArrowRight') keys.right = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
+        });
+
+        // Touch tracking
+        let touchStartX = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            const touchX = e.touches[0].clientX;
+            const deltaX = touchX - touchStartX;
+
+            player.x += deltaX * 0.5; // Adjust multiplier for sensitivity
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+
+            touchStartX = touchX; // Update the starting position
+        });
+
+        function spawnBlocks() {
+            for (let i = 0; i < blocksPerSpawn; i++) {
+                const x = Math.random() * (canvas.width - blockSize);
+                blocks.push({ x, y: -blockSize, width: blockSize, height: blockSize, color: 'red' });
+            }
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function drawBlocks() {
+            for (const block of blocks) {
+                ctx.fillStyle = block.color;
+                ctx.fillRect(block.x, block.y, block.width, block.height);
+            }
+        }
+
+        function updateBlocks() {
+            for (const block of blocks) {
+                block.y += blockSpeed;
+            }
+
+            // Remove blocks that are off-screen
+            for (let i = blocks.length - 1; i >= 0; i--) {
+                if (blocks[i].y > canvas.height) {
+                    blocks.splice(i, 1);
+                }
+            }
+        }
+
+        function checkCollisions() {
+            for (const block of blocks) {
+                if (
+                    player.x < block.x + block.width &&
+                    player.x + player.width > block.x &&
+                    player.y < block.y + block.height &&
+                    player.y + player.height > block.y
+                ) {
+                    gameOver();
+                }
+            }
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            gameOverElement.style.display = 'block';
+            canvas.addEventListener('touchend', restartGame, { once: true }); // Restart on tap
+        }
+
+        function restartGame() {
+            location.reload(); // Reload page to restart
+        }
+
+        function updateTime() {
+            if (gameRunning) {
+                timeSurvived++;
+                scoreElement.textContent = `Time: ${timeSurvived}s`;
+            }
+        }
+
+        function updatePlayerPosition() {
+            if (keys.left && player.x > 0) player.x -= player.speed;
+            if (keys.right && player.x < canvas.width - player.width) player.x += player.speed;
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawPlayer();
+            drawBlocks();
+            updateBlocks();
+            updatePlayerPosition();
+            checkCollisions();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function increaseDifficulty() {
+            blockSpeed += 0.3; // Blocks fall faster
+            if (blockSpawnInterval > 400) blockSpawnInterval -= 50; // Blocks spawn faster
+        }
+
+        function startBlockSpawning() {
+            setInterval(() => {
+                if (gameRunning) spawnBlocks();
+            }, blockSpawnInterval);
+
+            setInterval(() => {
+                if (gameRunning) increaseDifficulty();
+            }, 5000); // Increase difficulty every 5 seconds
+
+            setInterval(updateTime, 1000); // Update time every second
+        }
+
+        // Start the game
+        gameLoop();
+        startBlockSpawning();
+    </script>
+</body>
+</html>
